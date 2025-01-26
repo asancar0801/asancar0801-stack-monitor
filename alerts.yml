@@ -1,0 +1,11 @@
+groups:
+  - name: mysql_alerts
+    rules:
+      - alert: HighMySQLConnections
+        expr: mysql_global_status_connections > 2
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MySQL tiene más de 1000 conexiones abiertas"
+          description: "La cantidad de conexiones abiertas en MySQL ha superado los 1000."

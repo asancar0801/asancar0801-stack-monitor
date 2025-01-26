@@ -1,0 +1,66 @@
+version: '3'
+services:
+  mysql:
+    image: mysql
+    container_name: mysql  # Nombre explícito del contenedor MySQL
+    restart: always  # always restart
+    environment:
+      MYSQL_DATABASE: 'dbmalaga'  # name of database
+      MYSQL_USER: 'sample'  # sample is the name of user
+      MYSQL_PASSWORD: 'bolson'  # password for sample user
+      MYSQL_ROOT_PASSWORD: 'bolson'  # password for root user
+    ports:
+      - "3306:3306"  # host port 3306 is mapped to docker port 3306
+    expose:
+      - "3306"
+    volumes:
+      - ./mysql-db:/var/lib/mysql
+      - ./init-db:/docker-entrypoint-initdb.d/
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus  # Nombre explícito para el contenedor Prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts.yml:/etc/prometheus/alerts.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana  # Nombre explícito para el contenedor Grafana
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana:/etc/grafana/provisioning/datasources
+
+  mysql-exporter:
+    image: prom/mysqld-exporter
+    container_name: mysql-exporter  # Nombre explícito para el contenedor MySQL Exporter
+    command:
+      - --config.my-cnf=/cfg/my.cnf
+      - --mysqld.address=mysql:3306  # Asegúrate de usar el nombre correcto de MySQL
+    volumes:
+      - ./my.cnf:/cfg/my.cnf
+    ports:
+      - "9104:9104"
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    restart: always
+
+  discord-alerts:
+    image: benjojo/alertmanager-discord
+    container_name: discord-alerts
+    restart: unless-stopped
+    environment:
+      - DISCORD_WEBHOOK=https://discord.com/api/webhooks/1328332749928398970/tXIrHRcQvZDGG8XuJE0SxPd0WP6vZX2hIbqwYREWbgdVmoB3AEvld_TJSK3lsZpai9MQ
