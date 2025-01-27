@@ -1,0 +1,103 @@
+services:
+  esperluet_mongodb:
+    image: mongo:latest
+    container_name: esperluet_mongodb
+    restart: always
+    ports:
+      - 27017:27017
+    networks:
+      - esperluet_medium_network
+    command: --profile 2 --slowms 15 --slowOpSampleRate 0.5 --replSet rs0 --keyFile /etc/mongo-keyfile --logpath /var/log/mongodb/mongod.log --logappend
+    volumes:
+      - ./mongodb/data/:/data/db/
+      - ./mongodb/input/:/data/input/
+      - ./mongodb/mongod.conf:/etc/mongod.conf
+      - ./mongodb-keyfile:/etc/mongo-keyfile
+      - ./logs:/var/log/mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: frodo
+      MONGO_INITDB_ROOT_PASSWORD: bolson
+      MONGO_INITDB_DATABASE: observability
+
+  esperluet_mongo_express:
+    image: mongo-express
+    container_name: esperluet_mongo_express
+    restart: always
+    ports:
+      - 8081:8081
+    networks:
+      - esperluet_medium_network
+    environment:
+      WAIT_HOSTS: esperluet_mongodb:27017
+      ME_CONFIG_MONGODB_ADMINUSERNAME: frodo
+      ME_CONFIG_MONGODB_ADMINPASSWORD: bolson
+      ME_CONFIG_BASICAUTH_USERNAME: frodo
+      ME_CONFIG_BASICAUTH_PASSWORD: bolson
+      ME_CONFIG_MONGODB_URL: mongodb://frodo:bolson@esperluet_mongodb:27017/
+
+  esperluet_percona_mongodb_exporter:
+    image: percona/mongodb_exporter:0.40
+    container_name: esperluet_percona_mongodb_exporter
+    restart: always
+    ports:
+      - 9216:9216
+    command:
+        - '--mongodb.global-conn-pool'
+        - '--collector.diagnosticdata'
+        - '--discovering-mode'
+        - '--compatible-mode'
+        - '--mongodb.collstats-colls=admin.companies,admin.restaurants'
+    networks:
+      - esperluet_medium_network
+    environment:
+      WAIT_HOSTS: esperluet_mongodb:27017
+      MONGODB_URI: mongodb://root:jesusmylord@esperluet_mongodb:27017/
+
+  esperluet_prometheus:
+    container_name: esperluet_prometheus
+    build:
+      context: ./prometheus
+      dockerfile: Dockerfile
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus/prometheus-data/:/prometheus/
+    networks:
+      - esperluet_medium_network
+
+  esperluet_grafana:
+    image: grafana/grafana
+    container_name: esperluet_grafana
+    restart: unless-stopped
+    user: root
+    volumes:
+      - ./grafana/grafana-data/:/var/lib/grafana/
+    ports:
+      - 8186:3000
+    networks:
+      - esperluet_medium_network
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml
+      - ./loki-data:/data
+      - ./wal:/wal
+
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/promtail-config.yml
+      - ./logs/:/var/log/mongodb  # Montar directorio de logs de MongoDB
+    depends_on:
+      - loki
+    command: -config.file=/etc/promtail/promtail-config.yml
+
+
+networks:
+  esperluet_medium_network:
