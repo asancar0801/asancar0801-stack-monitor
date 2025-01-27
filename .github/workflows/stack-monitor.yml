@@ -1,0 +1,42 @@
+name: Deploy Stack-Monitor
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Clonar el repositorio
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Configurar Docker Compose
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      # 3. Iniciar los servicios del stack
+      - name: Start stack
+        run: |
+          docker-compose -f docker-compose.yml up -d
+          docker-compose ps
+
+      # 4. Probar conectividad con MySQL
+      - name: Test MySQL connection
+        run: |
+          docker exec -i stack-monitor-mysql mysql -uroot -p$MYSQL_ROOT_PASSWORD -e "SHOW DATABASES;"
+
+      # 5. Validar Prometheus está corriendo
+      - name: Validate Prometheus health
+        run: |
+          curl -s http://localhost:9090/-/healthy || exit 1
+
+      # 6. Realizar limpieza después de pruebas
+      - name: Tear down stack
+        if: always()
+        run: |
+          docker-compose down
