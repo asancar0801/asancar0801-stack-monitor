@@ -1,4 +1,4 @@
-# asancar0801-stack-monitor
+# Stack de monitorización
 Infraestructura de monitorización con alertas en discord, interfaz grafana.
-Opciones con bd sql y no relacional mongodb
+Opciones con base de datos sql y no relacional mongodb
  
